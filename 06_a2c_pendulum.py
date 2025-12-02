@@ -11,7 +11,7 @@ from typing import List, Tuple
 
 
 GYM_ENV = "Pendulum-v1"
-STATE_DICT = "reinforce_pendulum.pth"
+STATE_DICT = "a2c_pendulum.pth"
 EPS = 1e-5
 
 
@@ -147,13 +147,24 @@ class A2CAgent:
             score += reward
 
             if done:
-                state, _ = self.env.reset(seed=self.seed)
+                state, _ = self.env.reset()
                 print(score)
                 scores.append(score)
                 score = 0
 
         self._plot(self.total_step, scores, actor_losses, critic_losses)
+        self.save_model(STATE_DICT)
         self.env.close()
+
+    def save_model(self, path: str):
+        torch.save({"actor": self.actor.state_dict(), "critic": self.critic.state_dict()}, path)
+        print(f"Model saved {path}")
+
+    def load_model(self, path: str):
+        checkpoint = torch.load(path)
+        self.actor.load_state_dict(checkpoint["actor"])
+        self.critic.load_state_dict(checkpoint["critic"])
+        print(f"Model loaded from {path}")
 
     def _plot(
         self, frame_idx: int, scores: List[float], actor_losses: List[float], critic_losses: List[float]
@@ -171,6 +182,44 @@ class A2CAgent:
             plt.plot(values)
 
         plt.show()
+
+
+def evaluate():
+    env = gym.make(GYM_ENV, render_mode="human")
+
+    gamma = 0.9
+    entropy_weight = 1e-2
+    agent = A2CAgent(env, gamma, entropy_weight)
+
+    try:
+        agent.load_model(STATE_DICT)
+    except FileNotFoundError:
+        print(f"Error, file not found {STATE_DICT}")
+        return
+
+    agent.is_test = True
+    agent.actor.eval()
+    agent.critic.eval()
+
+    episodes = 5
+    for i in range(episodes):
+        state, _ = env.reset()
+        total_reward = 0
+        done = False
+        step_count = 0
+
+        while not done:
+            env.render()
+
+            action = agent.select_action(state)
+            next_state, reward, terminated, truncated, _ = env.step(action)
+            done = terminated or truncated
+
+            state = next_state
+            total_reward += reward
+            step_count += 1
+
+        print(f"Episode {i + 1}, total reward = {total_reward:.2f}, Steps = {step_count}")
 
 
 def seed_torch(seed):
