@@ -10,5 +10,6 @@ dependencies = [
     "notebook>=7.5.0",
     "numpy>=2.3.5",
     "pygame>=2.6.1",
+    "pytest>=8.3.4",
     "torch>=2.9.1",
 ]
